@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b0d12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Strip Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a small, confident home-maker control panel, calm until lit.
+   IDEA: the LED strip itself; each controller card is a lit strip on a dark shelf.
+   PICTURE: a row of glowing diodes per controller showing live colour/brightness/power.
+   COLOUR and TYPE: near-black ground, the strip's own colour is the accent; Unbounded titles, Rubik body.
+   LAYOUT: title, two controller cards side by side (stacked on phones), "both" bar, then a log. */
+:root{color-scheme:dark;--bg:#0b0d12;--panel:#141821;--line:#262c39;--ink:#eef1f6;--mute:#8d97a8;--ok:#4be39a;--bad:#ff6b6b;--accent:#7aa8ff}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:radial-gradient(1200px 500px at 50% -200px,#1a2030,transparent),var(--bg);color:var(--ink);font:16px/1.5 Rubik,system-ui,sans-serif;overflow-x:clip;min-height:100vh}
+.wrap{max-width:1100px;margin:0 auto;padding:clamp(18px,4vw,40px) max(4vw,14px) 60px}
+h1{font:700 clamp(28px,6vw,44px)/1.05 Unbounded,sans-serif;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--mute);margin:0 0 22px;max-width:60ch}
+.warn{display:none;background:#2a1a1a;border:1px solid #5b2a2a;color:#ffd2d2;padding:12px 14px;border-radius:12px;margin-bottom:18px}
+.warn.on{display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:18px;display:flex;flex-direction:column;gap:16px}
+.top{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.name{flex:1;font:600 18px Rubik,sans-serif;background:transparent;border:1px solid transparent;color:var(--ink);border-radius:8px;padding:6px 8px;min-width:8ch}
+.name:hover,.name:focus{border-color:var(--line);outline:none}
+.dot{width:10px;height:10px;border-radius:50%;background:#555;flex:none}
+.dot.on{background:var(--ok);box-shadow:0 0 10px var(--ok)}.dot.busy{background:#f5c542}
+.state{color:var(--mute);font-size:14px;width:100%}
+.strip{position:relative;height:56px;border-radius:12px;background:#07080b;border:1px solid #1d2230;display:flex;align-items:center;justify-content:space-between;padding:0 14px;overflow:hidden}
+.strip i{width:14px;height:14px;border-radius:3px;background:var(--c,#222);box-shadow:0 0 calc(var(--g,0)*18px) calc(var(--g,0)*4px) var(--c,#000);opacity:var(--o,.15);transition:background .15s,opacity .2s,box-shadow .2s}
+.strip::after{content:"";position:absolute;inset:auto 0 0 0;height:50%;background:linear-gradient(transparent,rgba(0,0,0,.35));pointer-events:none}
+button{font:500 15px Rubik,sans-serif;color:var(--ink);background:#1f2532;border:1px solid var(--line);border-radius:12px;min-height:44px;padding:0 16px;cursor:pointer}
+button:hover{background:#273044}button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:disabled{opacity:.4;cursor:not-allowed}
+.primary{background:var(--accent);color:#0b0d12;border-color:transparent;font-weight:600}.primary:hover{background:#9bbcff}
+.power{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.power .onb.act{background:var(--ok);color:#06210f;border-color:transparent}
+.power .offb.act{background:#3a2026;border-color:#5b2a33}
+.ctl{display:grid;gap:12px}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:12px}
+fieldset:disabled{opacity:.45}
+.row{display:grid;grid-template-columns:7.5em 1fr 3.2em;align-items:center;gap:10px}
+.row label{color:var(--mute);font-size:14px}.row output{text-align:right;font-variant-numeric:tabular-nums;font-size:14px}
+input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+input[type=color]{width:100%;height:44px;border:1px solid var(--line);border-radius:12px;background:#0f1218;padding:4px;cursor:pointer}
+.sw{display:flex;flex-wrap:wrap;gap:8px}
+.sw button{width:36px;height:36px;min-height:36px;padding:0;border-radius:50%;border:2px solid #0b0d12;outline:1px solid var(--line)}
+.mode{display:grid;grid-template-columns:44px 1fr 44px;gap:8px;align-items:center}
+.mode input{font:600 16px Rubik;text-align:center;background:#0f1218;color:var(--ink);border:1px solid var(--line);border-radius:12px;height:44px;width:100%}
+.mode button{padding:0}
+.both{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:16px 18px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.both strong{margin-right:auto;font-weight:600}
+details{margin-top:18px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:14px 18px}
+summary{cursor:pointer;font-weight:600;min-height:28px}
+.raw{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.raw select,.raw input{font:16px Rubik;background:#0f1218;color:var(--ink);border:1px solid var(--line);border-radius:12px;height:44px;padding:0 10px}
+.raw input{flex:1;min-width:12ch;font-family:ui-monospace,monospace}
+.log{font:13px/1.45 ui-monospace,monospace;color:#b7c0cf;background:#07080b;border-radius:12px;padding:10px;height:190px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+.hint{color:var(--mute);font-size:14px;margin:8px 0 0}
+label.chk{display:flex;gap:8px;align-items:center;color:var(--mute);font-size:14px;min-height:44px}
+label.chk input{width:20px;height:20px;accent-color:var(--accent)}
+@media(prefers-reduced-motion:reduce){.strip i{transition:none}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Strip Control</h1>
+  <p class="sub">Connect to your SP110E LED controllers over Bluetooth. Use one, or both at once. Fully close the LED Hue app first: a controller can only talk to one app at a time.</p>
+  <div class="warn" id="warn"></div>
+  <button id="install" class="primary" hidden style="margin-bottom:18px">Install as app</button>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="both">
+    <strong>Both controllers</strong>
+    <button id="allOn">All on</button>
+    <button id="allOff">All off</button>
+    <button id="sync">Copy Dowelight → Backlight</button>
+  </div>
+
+  <details>
+    <summary>Advanced: raw commands &amp; log</summary>
+    <label class="chk"><input type="checkbox" id="showAll"> Show all Bluetooth devices when connecting (only if a controller is renamed)</label>
+    <div class="raw">
+      <select id="rawTarget" aria-label="Target controller"><option value="0">Dowelight</option><option value="1">Backlight</option></select>
+      <input id="rawHex" placeholder="e.g. 00 00 00 AA" aria-label="Raw hex bytes">
+      <button id="rawSend">Send</button>
+    </div>
+    <div class="log" id="log" aria-live="polite"></div>
+    <p class="hint">Commands are 4 bytes: three data bytes and a command byte. On AA, off AB, colour R G B 1E, brightness XX 00 00 2A, mode XX 00 00 2C, speed XX 00 00 03, white XX 00 00 69. If something doesn't respond, try bytes here and watch the log.</p>
+  </details>
+</div>
+
+<template id="tpl">
+  <section class="card">
+    <div class="top">
+      <span class="dot"></span>
+      <input class="name" aria-label="Controller name">
+      <button class="primary conn">Connect</button>
+      <div class="state">Not connected</div>
+    </div>
+    <div class="strip" aria-hidden="true"></div>
+    <fieldset disabled>
+      <div class="power"><button class="onb">On</button><button class="offb">Off</button></div>
+      <div class="ctl">
+        <input type="color" class="color" value="#ff5a1f" aria-label="Colour">
+        <div class="sw"></div>
+        <div class="row"><label>Brightness</label><input type="range" class="bri" min="0" max="255" value="200"><output>78%</output></div>
+        <div class="row"><label>White</label><input type="range" class="wht" min="0" max="255" value="0"><output>0%</output></div>
+        <div class="row"><label>Effect mode</label>
+          <div class="mode"><button class="mprev" aria-label="Previous mode">‹</button><input class="mnum" type="number" min="1" max="120" value="1" inputmode="numeric" aria-label="Mode number"><button class="mnext" aria-label="Next mode">›</button></div>
+          <button class="mgo" style="padding:0">Go</button></div>
+        <div class="row"><label>Effect speed</label><input type="range" class="spd" min="0" max="255" value="128"><output>50%</output></div>
+      </div>
+    </fieldset>
+  </section>
+</template>
+
+<script>
+{
+const SVC = 0xffe0, CHR = 0xffe1;
+const SWATCHES = ['#ff0000','#ff7a00','#ffd400','#00ff40','#00e5ff','#0040ff','#8a00ff','#ff00b8','#ffffff'];
+const CMD = {on:0xAA, off:0xAB, color:0x1E, bright:0x2A, mode:0x2C, speed:0x03, white:0x69};
+const LEDS = 18;
+// Each card only looks for its own controller (prefixes cover upper/lower case variants)
+const TARGETS = [
+  {label:'Dowelight', prefixes:['dowel','Dowel','DOWEL','DoweL']},
+  {label:'Backlight', prefixes:['back','Back','BACK','BackLight']}
+];
+const $ = (s, r=document) => r.querySelector(s);
+const logEl = $('#log');
+const hex = a => [...a].map(b => b.toString(16).padStart(2,'0').toUpperCase()).join(' ');
+function log(msg){ const t = new Date().toLocaleTimeString(); logEl.textContent += `[${t}] ${msg}\n`; logEl.scrollTop = logEl.scrollHeight; }
+const store = {
+  get(k, d){ try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v){ try { localStorage.setItem(k, v); } catch {} }
+};
+
+// Bluetooth availability check
+const warn = $('#warn');
+if (!('bluetooth' in navigator)) {
+  warn.classList.add('on');
+  warn.innerHTML = 'This browser can\'t use Web Bluetooth. Open this page in <b>Chrome on Android</b> (or Chrome/Edge on a computer), served over HTTPS (for example GitHub Pages).';
+}
+
+class Controller {
+  constructor(idx){
+    this.idx = idx; this.letter = 'AB'[idx];
+    this.dev = null; this.chr = null; this.queue = Promise.resolve();
+    this.state = {on:true, color:'#ff5a1f', bri:200, wht:0, mode:1, spd:128, effect:false};
+    this.pending = {}; this.timer = {};
+    this.build();
+  }
+  build(){
+    const el = $('#tpl').content.firstElementChild.cloneNode(true);
+    this.el = el; $('#grid').append(el);
+    this.name = $('.name', el); this.name.value = store.get('sp-name2-'+this.idx, TARGETS[this.idx].label);
+    this.name.onchange = () => store.set('sp-name2-'+this.idx, this.name.value);
+    this.dot = $('.dot', el); this.stateEl = $('.state', el); this.fs = $('fieldset', el); this.btn = $('.conn', el);
+    this.strip = $('.strip', el); this.strip.innerHTML = '<i></i>'.repeat(LEDS);
+    $('.sw', el).innerHTML = SWATCHES.map(c => `<button style="background:${c}" data-c="${c}" aria-label="Colour ${c}"></button>`).join('');
+    this.btn.onclick = () => this.dev?.gatt.connected ? this.disconnect() : this.connect();
+
+    $('.onb', el).onclick = () => this.power(true);
+    $('.offb', el).onclick = () => this.power(false);
+    $('.color', el).oninput = e => this.setColor(e.target.value);
+    $('.sw', el).onclick = e => { const c = e.target.dataset.c; if (c) { $('.color', el).value = c; this.setColor(c); } };
+    this.slider('.bri', 'bri', CMD.bright);
+    this.slider('.wht', 'wht', CMD.white);
+    this.slider('.spd', 'spd', CMD.speed);
+    const mnum = $('.mnum', el);
+    const stepMode = d => { mnum.value = Math.min(120, Math.max(1, (+mnum.value || 1) + d)); this.setMode(+mnum.value); };
+    $('.mprev', el).onclick = () => stepMode(-1);
+    $('.mnext', el).onclick = () => stepMode(1);
+    $('.mgo', el).onclick = () => stepMode(0);
+    mnum.onkeydown = e => { if (e.key === 'Enter') stepMode(0); };
+    this.render();
+  }
+  slider(sel, key, cmd){
+    const inp = $(sel, this.el), out = inp.nextElementSibling;
+    const show = () => out.textContent = Math.round(inp.value / 2.55) + '%';
+    show();
+    inp.oninput = () => { show(); this.state[key] = +inp.value; this.render(); this.throttle(key, [+inp.value, 0, 0, cmd]); };
+  }
+  setStatus(text, cls){ this.stateEl.textContent = text; this.dot.className = 'dot ' + (cls || ''); }
+  async connect(forceAll){
+    if (!navigator.bluetooth) return log('Web Bluetooth unavailable in this browser.');
+    try {
+      const all = forceAll === true || $('#showAll').checked;
+      this.setStatus('Choose your controller…', 'busy');
+      const dev = await navigator.bluetooth.requestDevice(all
+        ? {acceptAllDevices:true, optionalServices:[SVC]}
+        : {filters: TARGETS[this.idx].prefixes.map(p => ({namePrefix:p})), optionalServices:[SVC]});
+      const other = ctrls[1 - this.idx];
+      if (other.dev && other.dev.id === dev.id) { this.setStatus('That one is already connected as ' + other.letter); return; }
+      this.dev = dev;
+      dev.addEventListener('gattserverdisconnected', () => this.onDrop());
+      await this.attach();
+    } catch (e) {
+      this.setStatus(e.name === 'NotFoundError' ? `${TARGETS[this.idx].label} not found. Close LED Hue / other tabs and try again.` : 'Error: ' + e.message);
+      if (e.name === 'SecurityError') this.blocked();
+      log(`${this.letter}: ${e.name}: ${e.message}`);
+    }
+  }
+  blocked(){
+    warn.classList.add('on');
+    warn.innerHTML = 'Bluetooth is blocked when this page is shown inside another page. Open it directly in Chrome (for example from GitHub Pages) and try again.';
+  }
+  async attach(){
+    this.attaching = true;
+    try { await this._attach(); } finally { this.attaching = false; }
+  }
+  async _attach(){
+    this.setStatus('Connecting to ' + (this.dev.name || 'device') + '…', 'busy');
+    const timeout = (pr, ms, step) => Promise.race([pr, new Promise((_, rej) => setTimeout(() => rej(new Error('Timed out at ' + step)), ms))]);
+    let server;
+    for (let a = 1; ; a++) {
+      try {
+        this.setStatus(`Connecting to ${this.dev.name || 'device'}… (try ${a}/3)`, 'busy');
+        server = await timeout(this.dev.gatt.connect(), 10000, 'connect');
+        const svc = await timeout(server.getPrimaryService(SVC), 8000, 'finding LED service');
+        this.chr = await timeout(svc.getCharacteristic(CHR), 8000, 'finding LED characteristic');
+        break;
+      } catch (e) {
+        log(`${this.letter}: ${e.message}`);
+        try { this.dev.gatt.disconnect(); } catch {}
+        if (a >= 3) { this.setStatus('Could not connect. If on Windows, remove it from Bluetooth settings and try again.'); throw e; }
+        await new Promise(r => setTimeout(r, 1000));
+      }
+    }
+    if (this.chr.properties.notify) {
+      try {
+        await this.chr.startNotifications();
+        this.chr.addEventListener('characteristicvaluechanged', e => log(`${this.letter} ← ${hex(new Uint8Array(e.target.value.buffer))}`));
+      } catch {}
+    }
+    this.setStatus('Connected to ' + (this.dev.name || this.dev.id), 'on');
+    this.btn.textContent = 'Disconnect'; this.btn.classList.remove('primary');
+    this.fs.disabled = false;
+    log(`${this.letter}: connected to ${this.dev.name || this.dev.id}`);
+  }
+  disconnect(){ this.manual = true; this.dev?.gatt.disconnect(); }
+  async onDrop(){
+    if (this.attaching) return;
+    this.chr = null; this.fs.disabled = true;
+    this.btn.textContent = 'Connect'; this.btn.classList.add('primary');
+    log(`${this.letter}: disconnected`);
+    if (this.manual) { this.manual = false; this.dev = null; this.setStatus('Not connected'); return; }
+    this.setStatus('Connection lost, retrying…', 'busy');
+    for (let i = 0; i < 3; i++) {
+      await new Promise(r => setTimeout(r, 1200 * (i + 1)));
+      try { await this.attach(); return; } catch (e) { log(`${this.letter}: reconnect ${i+1} failed`); }
+    }
+    this.setStatus('Connection lost. Tap Connect to try again.');
+  }
+  send(bytes){
+    if (!this.chr) return Promise.resolve();
+    const data = new Uint8Array(bytes);
+    this.queue = this.queue.then(async () => {
+      try {
+        if (this.chr.writeValueWithoutResponse && this.chr.properties.writeWithoutResponse) await this.chr.writeValueWithoutResponse(data);
+        else await this.chr.writeValue(data);
+        log(`${this.letter} → ${hex(data)}`);
+      } catch (e) { log(`${this.letter}: write failed (${e.message})`); }
+    });
+    return this.queue;
+  }
+  throttle(key, bytes){
+    this.pending[key] = bytes;
+    if (this.timer[key]) return;
+    this.send(bytes);
+    this.pending[key] = null;
+    this.timer[key] = setTimeout(() => { this.timer[key] = null; if (this.pending[key]) this.throttle(key, this.pending[key]); }, 80);
+  }
+  power(on){ this.state.on = on; this.render(); return this.send([0,0,0, on ? CMD.on : CMD.off]); }
+  setColor(c){
+    this.state.color = c; this.state.effect = false; this.render();
+    const n = parseInt(c.slice(1), 16);
+    this.throttle('color', [(n >> 16) & 255, (n >> 8) & 255, n & 255, CMD.color]);
+  }
+  setMode(m){ this.state.mode = m; this.state.effect = true; this.render(); return this.send([m,0,0,CMD.mode]); }
+  render(){
+    const s = this.state, leds = this.strip.children;
+    const g = s.on ? Math.max(.08, s.bri / 255) : 0;
+    $('.onb', this.el).classList.toggle('act', s.on);
+    $('.offb', this.el).classList.toggle('act', !s.on);
+    for (let i = 0; i < leds.length; i++) {
+      let c = s.color;
+      if (s.effect) c = `hsl(${(i * 360 / leds.length + s.mode * 37) % 360} 100% 55%)`;
+      leds[i].style.setProperty('--c', s.on ? c : '#222');
+      leds[i].style.setProperty('--o', s.on ? .35 + g * .65 : .15);
+      leds[i].style.setProperty('--g', g);
+    }
+  }
+  apply(st){
+    // copy settings from another controller's state
+    const el = this.el;
+    $('.color', el).value = st.color; $('.bri', el).value = st.bri; $('.wht', el).value = st.wht;
+    $('.spd', el).value = st.spd; $('.mnum', el).value = st.mode;
+    ['.bri','.wht','.spd'].forEach(s => { const i = $(s, el); i.nextElementSibling.textContent = Math.round(i.value / 2.55) + '%'; });
+    Object.assign(this.state, st); this.render();
+    this.send([0,0,0, st.on ? CMD.on : CMD.off]);
+    if (st.effect) this.send([st.mode,0,0,CMD.mode]);
+    else { const n = parseInt(st.color.slice(1),16); this.send([(n>>16)&255,(n>>8)&255,n&255,CMD.color]); }
+    this.send([st.bri,0,0,CMD.bright]);
+    this.send([st.spd,0,0,CMD.speed]);
+  }
+}
+
+const ctrls = [new Controller(0), new Controller(1)];
+
+$('#allOn').onclick = () => ctrls.forEach(c => c.chr && c.power(true));
+$('#allOff').onclick = () => ctrls.forEach(c => c.chr && c.power(false));
+$('#sync').onclick = () => {
+  if (!ctrls[1].chr) return log('Connect Backlight first.');
+  ctrls[1].apply({...ctrls[0].state});
+};
+$('#rawSend').onclick = () => {
+  const bytes = $('#rawHex').value.trim().split(/[\s,]+/).filter(Boolean).map(h => parseInt(h, 16));
+  if (!bytes.length || bytes.some(b => isNaN(b) || b < 0 || b > 255)) return log('Raw: enter bytes as hex, e.g. 00 00 00 AA');
+  const c = ctrls[+$('#rawTarget').value];
+  if (!c.chr) return log(`Raw: controller ${c.letter} isn't connected.`);
+  c.send(bytes);
+};
+log('Ready. Tap Connect on a controller to pair.');
+// Installable app support
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(e => log('Offline cache unavailable: ' + e.message));
+let installEvt = null; const instBtn = $('#install');
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; instBtn.hidden = false; });
+instBtn.onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; instBtn.hidden = true; };
+window.addEventListener('appinstalled', () => { instBtn.hidden = true; log('Installed as an app.'); });
+}
+</script>
+</body>
+</html>
